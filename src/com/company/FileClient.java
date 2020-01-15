@@ -2,124 +2,87 @@ package com.company;
 
 import java.net.*;
 import java.io.*;
-import java.util.*;
 
 public class FileClient {
-
-    private static Socket sock;
+    private static Socket socket;
     private static String fileName;
-    private static BufferedReader stdin;
-    private static PrintStream os;
+    private static BufferedReader br;
+    private static PrintStream ps;
 
     public void startFileClient() throws IOException {
         while(true) {
             try {
-                sock = new Socket("127.0.0.1", 25444);
-                stdin = new BufferedReader(new InputStreamReader(System.in));
+                socket = new Socket("192.168.43.101", 25444);
+                br = new BufferedReader(new InputStreamReader(System.in));
             } catch (Exception e) {
-                System.err.println("Cannot connect to the server, try again later.");
+                System.err.println("Can't connect to the server, please try again later");
                 System.exit(1);
             }
 
-            os = new PrintStream(sock.getOutputStream());
-
+            ps = new PrintStream(socket.getOutputStream());
 
             try {
-                switch (Integer.parseInt(selectAction())) {
-                    case 1:
-                        os.println("LIST / AFTP/1.0");
-                        System.out.print("List with files: ");
-                        //hier komt dus een list van files binnen
+                switch (selectCommand()) {
+                    case "LIST":
+                        ps.println("LIST");
+                        System.out.print("LIST: ");
 
-                        fileName = stdin.readLine();
-                        os.println(fileName);
-                        receiveFile(fileName);
+                        fileName = br.readLine();
+                        ps.println(fileName);
+                        getFile(fileName);
                         continue;
-                    case 2:
-                        os.println("PUT / AFTP/1.0");
-                        sendFile();
+                    case "GET":
+                        ps.println("GET");
+                        System.out.print("GET: ");
+
+                        fileName = br.readLine();
+                        ps.println(fileName);
+                        getFile(fileName);
                         continue;
-                    case 3:
-                        os.println("GET / AFTP/1.0");
-                        System.out.print("Enter file name: ");
-                        fileName = stdin.readLine();
-                        os.println(fileName);
-                        receiveFile(fileName);
+                    case "PUT":
+                        ps.println("PUT");
+                        System.out.println("PUT: ");
+
+                        putFile();
                         continue;
-                    case 4:
-                        os.println("DELETE / AFTP/1.0");
-                        System.out.print("Enter file name to delete: ");
-                        fileName = stdin.readLine();
-                        os.println(fileName);
-                        receiveFile(fileName);
+                    case "DELETE":
+                        ps.println("DELETE");
+                        System.out.print("DELETE: ");
+
+                        fileName = br.readLine();
+                        ps.println(fileName);
+                        getStatus();
                         continue;
-                    case 5:
-                        sock.close();
-                        System.exit(1);
+                    default:
+                        ps.println("COMMAND NOT FOUND");
+                        continue;
                 }
             } catch (Exception e) {
-                System.err.println("not valid input");
+                System.err.println("Please enter a valid command");
             }
-
-        }
-
-    }
-
-    public static String selectAction() throws IOException {
-        System.out.println("1. List of files");
-        System.out.println("2. Send/update file.");
-        System.out.println("3. Receive file.");
-        System.out.println("4. Delete file.");
-        System.out.println("5. Exit.");
-        System.out.print("\nMake selection: ");
-
-        return stdin.readLine();
-    }
-
-
-    public static void sendFile() {
-        try {
-            System.out.print("Enter file name: ");
-            fileName = stdin.readLine();
-
-            File myFile = new File(fileName);
-            byte[] mybytearray = new byte[(int) myFile.length()];
-            if(!myFile.exists()) {
-                System.out.println("File does not exist..");
-                return;
-            }
-
-            FileInputStream fis = new FileInputStream(myFile);
-            BufferedInputStream bis = new BufferedInputStream(fis);
-            //bis.read(mybytearray, 0, mybytearray.length);
-
-            DataInputStream dis = new DataInputStream(bis);
-            dis.readFully(mybytearray, 0, mybytearray.length);
-
-            OutputStream os = sock.getOutputStream();
-
-            //Sending file name and file size to the server
-            DataOutputStream dos = new DataOutputStream(os);
-            dos.writeUTF(myFile.getName());
-            dos.writeLong(mybytearray.length);
-            dos.write(mybytearray, 0, mybytearray.length);
-            dos.flush();
-            System.out.println("File "+fileName+" sent to Server.");
-        } catch (Exception e) {
-            System.err.println("Exceptionnnn: "+e);
         }
     }
 
-    public static void receiveFile(String fileName) {
+    public static String selectCommand() throws IOException {
+        System.out.println("\nLIST - Shows all files");
+        System.out.println("GET - Get file from server");
+        System.out.println("PUT - Place file on server");
+        System.out.println("DELETE - Delete file from server");
+        System.out.println("--------------------------");
+        System.out.print("Choose command: ");
+
+        return br.readLine();
+    }
+
+    public static void getFile(String fileName) {
         try {
             int bytesRead;
-            InputStream in = sock.getInputStream();
+            InputStream in = socket.getInputStream();
 
             DataInputStream clientData = new DataInputStream(in);
 
-            String status = clientData.readUTF();
-            System.out.println(status);
             fileName = clientData.readUTF();
+            System.out.println(fileName);
             OutputStream output = new FileOutputStream(fileName);
 
             long size = clientData.readLong();
@@ -132,11 +95,54 @@ public class FileClient {
             output.close();
             in.close();
 
-            System.out.println("File "+fileName+" received from Server.");
+            System.out.println("File "+fileName+" received from the server.");
         } catch (IOException ex) {
             System.out.println("Exception: "+ex);
             ex.printStackTrace();
         }
-
     }
+
+    public static void putFile() {
+        try {
+            System.out.print("Enter file name: ");
+            fileName = br.readLine();
+
+            File myFile = new File(fileName);
+            byte[] mybytearray = new byte[(int) myFile.length()];
+            if(!myFile.exists()) {
+                System.out.println("File doesn't exist");
+                return;
+            }
+
+            FileInputStream fis = new FileInputStream(myFile);
+            BufferedInputStream bis = new BufferedInputStream(fis);
+
+            DataInputStream dis = new DataInputStream(bis);
+            dis.readFully(mybytearray, 0, mybytearray.length);
+
+            OutputStream os = socket.getOutputStream();
+
+            //Sending file name and file size to the server
+            DataOutputStream dos = new DataOutputStream(os);
+            dos.writeUTF(myFile.getName());
+            dos.writeLong(mybytearray.length);
+            dos.write(mybytearray, 0, mybytearray.length);
+            dos.flush();
+            System.out.println("File "+fileName+" sent to the server.");
+        } catch (Exception e) {
+            System.err.println("Exception: "+e);
+        }
+    }
+
+    public static void getStatus() {
+        try {
+            InputStream in = socket.getInputStream();
+            DataInputStream clientData = new DataInputStream(in);
+            String status = clientData.readUTF();
+            System.out.println(status);
+        } catch (Exception e) {
+            System.err.println("Exception: "+e);
+        }
+    }
+
 }

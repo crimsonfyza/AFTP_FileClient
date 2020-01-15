@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/NetwerkenEindopdrachtClient.iml" filepath="$PROJECT_DIR$/NetwerkenEindopdrachtClient.iml" />
+      <module fileurl="file://$PROJECT_DIR$/AFTP_FileClient.iml" filepath="$PROJECT_DIR$/AFTP_FileClient.iml" />
     </modules>
   </component>
 </project>
