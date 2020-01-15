@@ -21,44 +21,40 @@ public class FileClient {
 
             ps = new PrintStream(socket.getOutputStream());
 
-            try {
-                switch (selectCommand()) {
-                    case "LIST":
-                        ps.println("LIST");
-                        System.out.print("LIST: ");
+            switch (selectCommand()) {
+                case "LIST":
+                    ps.println("LIST");
+                    System.out.print("LIST: ");
 
-                        fileName = br.readLine();
-                        ps.println(fileName);
-                        getFile(fileName);
-                        continue;
-                    case "GET":
-                        ps.println("GET");
-                        System.out.print("GET: ");
+                    fileName = br.readLine();
+                    ps.println(fileName);
+                    getFile(fileName);
+                    continue;
+                case "GET":
+                    ps.println("GET");
+                    System.out.print("GET: ");
 
-                        fileName = br.readLine();
-                        ps.println(fileName);
-                        getFile(fileName);
-                        continue;
-                    case "PUT":
-                        ps.println("PUT");
-                        System.out.println("PUT: ");
+                    fileName = br.readLine();
+                    ps.println(fileName);
+                    getFile(fileName);
+                    continue;
+                case "PUT":
+                    ps.println("PUT");
+                    System.out.println("PUT: ");
 
-                        putFile();
-                        continue;
-                    case "DELETE":
-                        ps.println("DELETE");
-                        System.out.print("DELETE: ");
+                    putFile();
+                    continue;
+                case "DELETE":
+                    ps.println("DELETE");
+                    System.out.print("DELETE: ");
 
-                        fileName = br.readLine();
-                        ps.println(fileName);
-                        getStatus();
-                        continue;
-                    default:
-                        ps.println("COMMAND NOT FOUND");
-                        continue;
-                }
-            } catch (Exception e) {
-                System.err.println("Please enter a valid command");
+                    fileName = br.readLine();
+                    ps.println(fileName);
+                    getStatus();
+                    continue;
+                default:
+                    ps.println("COMMAND NOT FOUND");
+                    continue;
             }
         }
     }
@@ -74,32 +70,40 @@ public class FileClient {
         return br.readLine();
     }
 
-    public static void getFile(String fileName) {
-        try {
-            int bytesRead;
-            InputStream in = socket.getInputStream();
+    public static void getFile(String fileName) throws IOException {
 
-            DataInputStream clientData = new DataInputStream(in);
+            String filePath = null;
+            OutputStream output = null;
+            DataInputStream clientData = null;
+            try {
+                int bytesRead;
+                clientData = new DataInputStream(socket.getInputStream());
+                filePath = fileName;
+                output = new FileOutputStream(filePath);
+                long size = clientData.readLong();
+                byte[] buffer = new byte[1024];
+                while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                    output.write(buffer, 0, bytesRead);
+                    size -= bytesRead;
+                }
+                output.close();
+                clientData.close();
+                System.out.println("File "+fileName+" received from client.");
+            } catch (IOException ex) {
+                System.err.println("Client error. Connection closed.");
+                File filePathCheck = new File(filePath);
+                Boolean defaultPathCheck = filePathCheck.exists();
+                //error file couldnt upload
+                // so if the file existed, it would be locked, if it didnt exist theres a server error.
+                if (defaultPathCheck == true) {
+                    //overwrite failed
+                } else {
+                    //new file couldnt be made.
 
-            fileName = clientData.readUTF();
-            System.out.println(fileName);
-            OutputStream output = new FileOutputStream(fileName);
-
-            long size = clientData.readLong();
-            byte[] buffer = new byte[1024];
-            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
-                output.write(buffer, 0, bytesRead);
-                size -= bytesRead;
+                }
+                output.close();
+                clientData.close();
             }
-
-            output.close();
-            in.close();
-
-            System.out.println("File "+fileName+" received from the server.");
-        } catch (IOException ex) {
-            System.out.println("Exception: "+ex);
-            ex.printStackTrace();
-        }
     }
 
     public static void putFile() {
