@@ -6,21 +6,20 @@ import java.io.*;
 class FileClient {
     /**
      * Possible commands:
-     * LIST / AFTP/1.0 - Shows all files
-     * GET /Tekst.txt AFTP/1.0 - Get file from server
-     * PUT /Tekst.txt AFTP/1.0 - Place file on server
-     * DELETE AFTP/1.0 - Delete file from server
+     * LIST - Shows all files
+     * GET /Tekst.txt - Get file from server
+     * PUT /Tekst.txt - Place file on server
+     * DELETE /Tekst.txt - Delete file from server
      *
-     * socket   De connectie met de server over een specifieke poort
-     * br       Buffer om de inputstream heen, haalt input uit de commandline
-     * ps       De communicatie met de server
-     * fileName Bestandsnaam van het bestand wat opgehaald/geplaatst wordt
+     * socket   The connection with the server over a specific port
+     * br       The buffer surrounding the inputstream, gets its input from the commandline
+     * ps       The communication with the server
+     * fileName The filename of the received/sent file
     **/
     private static Socket socket;
     private static BufferedReader br;
     private static PrintStream ps;
     private static String fileName;
-    private static String defaultPath = "C:\\Users\\aron1\\IdeaProjects\\AFTP_FileClient\\files\\";
 
     /**
      * Creates the connection
@@ -40,28 +39,28 @@ class FileClient {
             br = new BufferedReader(new InputStreamReader(System.in));
             ps = new PrintStream(socket.getOutputStream());
 
-            // Een switch die de aan de hand van het eerste woord uit de commandline de input afhandelt
             String input = selectCommand();
-            String[] inputArray = input.split(" ", 3);
+            String[] inputArray = input.split(" ");
 
             switch (inputArray[0]) {
                 case "LIST":
-                    ps.println(input);
+                    ps.println(inputArray[0] + " / AFTP/1.0");
                     getStatus();
                     continue;
                 case "GET":
-                    ps.println(input);
-                    getFile();
+                    String test = inputArray[0] + " " + inputArray[1] + " AFTP/1.0";
+                    ps.println(test);
+                    getFile(inputArray[1]);
                     getStatus();
                     continue;
                 case "PUT":
-                    ps.println(input);
+                    ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
                     putFile(inputArray[1]);
                     getStatus();
                     continue;
                 case "DELETE":
                     if(inputArray[1] != null) {
-                        ps.println(input);
+                        ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
                         getStatus();
                     }
                     continue;
@@ -96,23 +95,21 @@ class FileClient {
         }
     }
 
-    private static void getFile() {
-        String filePath = null;
+    private static void getFile(String getFileName) {
         OutputStream output = null;
         DataInputStream clientData = null;
         try {
             int bytesRead;
             clientData = new DataInputStream(socket.getInputStream());
             String currentFileName = clientData.readUTF();
-            filePath = fileName;
-            output = new FileOutputStream(filePath);
+            System.out.println(currentFileName);
+            output = new FileOutputStream(getFileName);
             long size = clientData.readLong();
             byte[] buffer = new byte[1024];
             while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
                 output.write(buffer, 0, bytesRead);
                 size -= bytesRead;
             }
-            output.close();
         } catch (IOException ex) {
             System.err.println("Client error. Connection closed.");
         }
@@ -121,7 +118,7 @@ class FileClient {
     private static void putFile(String putFileName) {
         try {
             File myFile = new File(putFileName);
-            byte[] mybytearray = new byte[(int) myFile.length()];
+            byte[] byteArray = new byte[(int) myFile.length()];
 
             if(!myFile.exists()) {
                 System.out.println(">");
@@ -131,19 +128,18 @@ class FileClient {
                 BufferedInputStream bis = new BufferedInputStream(fis);
 
                 DataInputStream dis = new DataInputStream(bis);
-                dis.readFully(mybytearray, 0, mybytearray.length);
+                dis.readFully(byteArray, 0, byteArray.length);
 
                 OutputStream os = socket.getOutputStream();
 
-                //Sending file name and file size to the server
                 DataOutputStream dos = new DataOutputStream(os);
                 dos.writeUTF(myFile.getName());
-                dos.writeLong(mybytearray.length);
-                dos.write(mybytearray, 0, mybytearray.length);
+                dos.writeLong(byteArray.length);
+                dos.write(byteArray, 0, byteArray.length);
                 dos.flush();
             }
         } catch (Exception e) {
-            System.err.println("Exception: "+e);
+            System.err.println("Exception: " + e);
         }
     }
 }
