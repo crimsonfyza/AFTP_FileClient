@@ -3,19 +3,19 @@ package com.company;
 import java.net.*;
 import java.io.*;
 
-/**
- * Possible commands:
- * LIST / AFTP/1.0 - Shows all files
- * GET /Tekst.txt AFTP/1.0 - Get file from server
- * PUT /Tekst.txt AFTP/1.0 - Place file on server
- * DELETE AFTP/1.0 - Delete file from server
- *
- * @param socket   De connectie met de server over een specifieke poort
- * @param br       Buffer om de inputstream heen, haalt input uit de commandline
- * @param ps       De communicatie met de server
- * @param fileName Bestandsnaam van het bestand wat opgehaald/geplaatst wordt
-**/
 public class FileClient {
+    /**
+     * Possible commands:
+     * LIST / AFTP/1.0 - Shows all files
+     * GET /Tekst.txt AFTP/1.0 - Get file from server
+     * PUT /Tekst.txt AFTP/1.0 - Place file on server
+     * DELETE AFTP/1.0 - Delete file from server
+     *
+     * @param socket   De connectie met de server over een specifieke poort
+     * @param br       Buffer om de inputstream heen, haalt input uit de commandline
+     * @param ps       De communicatie met de server
+     * @param fileName Bestandsnaam van het bestand wat opgehaald/geplaatst wordt
+    **/
     private static Socket socket;
     private static BufferedReader br;
     private static PrintStream ps;
@@ -29,7 +29,7 @@ public class FileClient {
             socket = new Socket("192.168.43.101", 25444);
             getStatus();
         } catch (Exception e) {
-            System.err.println("> Can't connect to the server, please try again later");
+            System.err.println(">Can't connect to the server, please try again later");
             System.exit(1);
         }
     }
@@ -80,6 +80,7 @@ public class FileClient {
             InputStream in = socket.getInputStream();
             DataInputStream clientData = new DataInputStream(in);
             String status = clientData.readUTF();
+            System.out.println(">");
             System.out.println(status);
         } catch (Exception e) {
             System.err.println("Exception: "+e);
@@ -103,23 +104,11 @@ public class FileClient {
                 size -= bytesRead;
             }
             output.close();
-            //clientData.close();
-
         } catch (IOException ex) {
             System.err.println("Client error. Connection closed.");
             File filePathCheck = new File(filePath);
             Boolean defaultPathCheck = filePathCheck.exists();
-            //error file couldnt upload
-            // so if the file existed, it would be locked, if it didnt exist theres a server error.
-            if (defaultPathCheck == true) {
-                //overwrite failed
-
-            } else {
-                //new file couldnt be made.
-
-            }
             output.close();
-            //clientData.close();
         }
     }
 
@@ -129,25 +118,23 @@ public class FileClient {
             byte[] mybytearray = new byte[(int) myFile.length()];
 
             if(!myFile.exists()) {
-                System.out.println("File doesn't exist");
-                return;
+                System.out.println("<AFTP/1.0 404 Not found");
+            } else {
+                FileInputStream fis = new FileInputStream(myFile);
+                BufferedInputStream bis = new BufferedInputStream(fis);
+
+                DataInputStream dis = new DataInputStream(bis);
+                dis.readFully(mybytearray, 0, mybytearray.length);
+
+                OutputStream os = socket.getOutputStream();
+
+                //Sending file name and file size to the server
+                DataOutputStream dos = new DataOutputStream(os);
+                dos.writeUTF(myFile.getName());
+                dos.writeLong(mybytearray.length);
+                dos.write(mybytearray, 0, mybytearray.length);
+                dos.flush();
             }
-
-            FileInputStream fis = new FileInputStream(myFile);
-            BufferedInputStream bis = new BufferedInputStream(fis);
-
-            DataInputStream dis = new DataInputStream(bis);
-            dis.readFully(mybytearray, 0, mybytearray.length);
-
-            OutputStream os = socket.getOutputStream();
-
-            //Sending file name and file size to the server
-            DataOutputStream dos = new DataOutputStream(os);
-            dos.writeUTF(myFile.getName());
-            dos.writeLong(mybytearray.length);
-            dos.write(mybytearray, 0, mybytearray.length);
-            dos.flush();
-            System.out.println("File "+putFileName+" sent to the server.");
         } catch (Exception e) {
             System.err.println("Exception: "+e);
         }
