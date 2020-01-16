@@ -3,116 +3,131 @@ package com.company;
 import java.net.*;
 import java.io.*;
 
+/**
+ * Possible commands:
+ * LIST / AFTP/1.0 - Shows all files
+ * GET /Tekst.txt AFTP/1.0 - Get file from server
+ * PUT /Tekst.txt AFTP/1.0 - Place file on server
+ * DELETE AFTP/1.0 - Delete file from server
+ *
+ * @param socket   De connectie met de server over een specifieke poort
+ * @param br       Buffer om de inputstream heen, haalt input uit de commandline
+ * @param ps       De communicatie met de server
+ * @param fileName Bestandsnaam van het bestand wat opgehaald/geplaatst wordt
+**/
 public class FileClient {
     private static Socket socket;
-    private static String fileName;
     private static BufferedReader br;
     private static PrintStream ps;
+    private static String fileName;
+    private static String defaultPath = "C:\\Users\\aron1\\IdeaProjects\\AFTP_FileClient\\files\\";
+
+    public FileClient() throws IOException {
+        // De connectie wordt aangemaakt, lukt dat niet dan sluit de applicatie
+        // Tegelijkertijd wordt br geinitieerd
+        try {
+            socket = new Socket("192.168.43.101", 25444);
+            getStatus();
+        } catch (Exception e) {
+            System.err.println("> Can't connect to the server, please try again later");
+            System.exit(1);
+        }
+    }
 
     public void startFileClient() throws IOException {
         while(true) {
-            try {
-                socket = new Socket("192.168.43.101", 25444);
-                br = new BufferedReader(new InputStreamReader(System.in));
-            } catch (Exception e) {
-                System.err.println("Can't connect to the server, please try again later");
-                System.exit(1);
-            }
-
+            br = new BufferedReader(new InputStreamReader(System.in));
             ps = new PrintStream(socket.getOutputStream());
 
-            switch (selectCommand()) {
-                case "LIST":
-                    ps.println("LIST");
-                    System.out.print("LIST: ");
+            // Een switch die de aan de hand van het eerste woord uit de commandline de input afhandelt
+            String input = selectCommand();
+            String inputArray[] = input.split(" ", 3);
 
-                    fileName = br.readLine();
-                    ps.println(fileName);
-                    getFile(fileName);
+            switch (inputArray[0]) {
+                case "LIST":
+                case "DELETE":
+                    ps.println(input);
+                    getStatus();
                     continue;
                 case "GET":
-                    ps.println("GET");
-                    System.out.print("GET: ");
-
-                    fileName = br.readLine();
-                    ps.println(fileName);
-                    getFile(fileName);
+                    ps.println(input);
+                    getFile();
+                    getStatus();
                     continue;
                 case "PUT":
-                    ps.println("PUT");
-                    System.out.println("PUT: ");
-
-                    putFile();
-                    continue;
-                case "DELETE":
-                    ps.println("DELETE");
-                    System.out.print("DELETE: ");
-
-                    fileName = br.readLine();
-                    ps.println(fileName);
+                    ps.println(input);
+                    putFile(inputArray[1]);
                     getStatus();
                     continue;
                 default:
                     ps.println("COMMAND NOT FOUND");
+                    getStatus();
                     continue;
             }
         }
     }
 
+    // Deze methode laat de mogelijkheden zien met een korte beschrijving en vraagt vervolgens om de input
     public static String selectCommand() throws IOException {
-        System.out.println("\nLIST - Shows all files");
-        System.out.println("GET - Get file from server");
-        System.out.println("PUT - Place file on server");
-        System.out.println("DELETE - Delete file from server");
-        System.out.println("--------------------------");
-        System.out.print("Choose command: ");
+        System.out.print(">");
 
         return br.readLine();
     }
 
-    public static void getFile(String fileName) throws IOException {
-
-            String filePath = null;
-            OutputStream output = null;
-            DataInputStream clientData = null;
-            try {
-                int bytesRead;
-                clientData = new DataInputStream(socket.getInputStream());
-                filePath = fileName;
-                output = new FileOutputStream(filePath);
-                long size = clientData.readLong();
-                byte[] buffer = new byte[1024];
-                while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
-                    output.write(buffer, 0, bytesRead);
-                    size -= bytesRead;
-                }
-                output.close();
-                clientData.close();
-                System.out.println("File "+fileName+" received from client.");
-            } catch (IOException ex) {
-                System.err.println("Client error. Connection closed.");
-                File filePathCheck = new File(filePath);
-                Boolean defaultPathCheck = filePathCheck.exists();
-                //error file couldnt upload
-                // so if the file existed, it would be locked, if it didnt exist theres a server error.
-                if (defaultPathCheck == true) {
-                    //overwrite failed
-                } else {
-                    //new file couldnt be made.
-
-                }
-                output.close();
-                clientData.close();
-            }
+    // De methode die de status opvraagt van de server
+    public static void getStatus() {
+        try {
+            InputStream in = socket.getInputStream();
+            DataInputStream clientData = new DataInputStream(in);
+            String status = clientData.readUTF();
+            System.out.println(status);
+        } catch (Exception e) {
+            System.err.println("Exception: "+e);
+        }
     }
 
-    public static void putFile() {
+    public static void getFile() throws IOException {
+        String filePath = null;
+        OutputStream output = null;
+        DataInputStream clientData = null;
         try {
-            System.out.print("Enter file name: ");
-            fileName = br.readLine();
+            int bytesRead;
+            clientData = new DataInputStream(socket.getInputStream());
+            String currentFileName = clientData.readUTF();
+            filePath = fileName;
+            output = new FileOutputStream(filePath);
+            long size = clientData.readLong();
+            byte[] buffer = new byte[1024];
+            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                output.write(buffer, 0, bytesRead);
+                size -= bytesRead;
+            }
+            output.close();
+            //clientData.close();
 
-            File myFile = new File(fileName);
+        } catch (IOException ex) {
+            System.err.println("Client error. Connection closed.");
+            File filePathCheck = new File(filePath);
+            Boolean defaultPathCheck = filePathCheck.exists();
+            //error file couldnt upload
+            // so if the file existed, it would be locked, if it didnt exist theres a server error.
+            if (defaultPathCheck == true) {
+                //overwrite failed
+
+            } else {
+                //new file couldnt be made.
+
+            }
+            output.close();
+            //clientData.close();
+        }
+    }
+
+    public static void putFile(String putFileName) {
+        try {
+            File myFile = new File(putFileName);
             byte[] mybytearray = new byte[(int) myFile.length()];
+
             if(!myFile.exists()) {
                 System.out.println("File doesn't exist");
                 return;
@@ -132,21 +147,9 @@ public class FileClient {
             dos.writeLong(mybytearray.length);
             dos.write(mybytearray, 0, mybytearray.length);
             dos.flush();
-            System.out.println("File "+fileName+" sent to the server.");
+            System.out.println("File "+putFileName+" sent to the server.");
         } catch (Exception e) {
             System.err.println("Exception: "+e);
         }
     }
-
-    public static void getStatus() {
-        try {
-            InputStream in = socket.getInputStream();
-            DataInputStream clientData = new DataInputStream(in);
-            String status = clientData.readUTF();
-            System.out.println(status);
-        } catch (Exception e) {
-            System.err.println("Exception: "+e);
-        }
-    }
-
 }
