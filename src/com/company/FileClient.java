@@ -51,12 +51,10 @@ class FileClient {
                     String test = inputArray[0] + " " + inputArray[1] + " AFTP/1.0";
                     ps.println(test);
                     getFile(inputArray[1]);
-                    getStatus();
                     continue;
                 case "PUT":
                     ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
                     putFile(inputArray[1]);
-                    getStatus();
                     continue;
                 case "DELETE":
                     if(inputArray[1] != null) {
@@ -85,34 +83,41 @@ class FileClient {
      **/
     private static void getStatus() {
         try {
-            InputStream in = socket.getInputStream();
-            DataInputStream clientData = new DataInputStream(in);
+
+            DataInputStream clientData = new DataInputStream(socket.getInputStream());
             String status = clientData.readUTF();
             System.out.println(">");
             System.out.println(status);
+
         } catch (Exception e) {
-            System.err.println("Exception: " + e);
+
         }
     }
 
-    private static void getFile(String getFileName) {
+    private static void getFile(String getFileName) throws IOException {
         OutputStream output = null;
         DataInputStream clientData = null;
         try {
             int bytesRead;
             clientData = new DataInputStream(socket.getInputStream());
             String currentFileName = clientData.readUTF();
-            System.out.println(currentFileName);
-            output = new FileOutputStream(getFileName);
-            long size = clientData.readLong();
-            byte[] buffer = new byte[1024];
-            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
-                output.write(buffer, 0, bytesRead);
-                size -= bytesRead;
+            if (!(currentFileName.equals("<AFTP/1.0 404 Not found"))) {
+                output = new FileOutputStream(getFileName);
+                int size = clientData.readInt();
+                byte[] buffer = new byte[1024];
+                while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                    output.write(buffer, 0, bytesRead);
+                    size -= bytesRead;
+                }
+                System.out.println(currentFileName);
+            } else {
+                System.out.println(currentFileName);
             }
         } catch (IOException ex) {
-            System.err.println("Client error. Connection closed.");
+            //System.err.println("Client error. Connection closed.");
+            System.out.println("<AFTP/1.0 404 Not found");
         }
+
     }
 
     private static void putFile(String putFileName) {
@@ -120,7 +125,7 @@ class FileClient {
             File myFile = new File(putFileName);
             byte[] byteArray = new byte[(int) myFile.length()];
 
-            if(!myFile.exists()) {
+            if(!(myFile.exists())) {
                 System.out.println(">");
                 System.out.println("<AFTP/1.0 404 Not found");
             } else {
@@ -137,6 +142,8 @@ class FileClient {
                 dos.writeLong(byteArray.length);
                 dos.write(byteArray, 0, byteArray.length);
                 dos.flush();
+
+                getStatus();
             }
         } catch (Exception e) {
             System.err.println("Exception: " + e);
