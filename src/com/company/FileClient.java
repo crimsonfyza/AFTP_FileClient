@@ -129,6 +129,8 @@ class FileClient {
             System.out.println("<AFTP/1.0 404 Not found");
         }
 
+        output.close();
+
     }
     private static void putFile(String putFileName) {
         String fullPath = "Share\\" + putFileName;
