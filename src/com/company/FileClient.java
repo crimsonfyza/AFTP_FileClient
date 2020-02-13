@@ -26,7 +26,8 @@ class FileClient {
     **/
     FileClient() {
         try {
-            socket = new Socket("192.168.43.101", 25444);
+            //socket = new Socket("192.168.43.101", 25444);
+            socket = new Socket("localhost", 25444);
             getStatus();
         } catch (Exception e) {
             System.err.println(">Can't connect to the server, please try again later");
@@ -35,6 +36,7 @@ class FileClient {
     }
 
     void startFileClient() throws IOException {
+
         while(true) {
             br = new BufferedReader(new InputStreamReader(System.in));
             ps = new PrintStream(socket.getOutputStream());
@@ -48,13 +50,14 @@ class FileClient {
                     getStatus();
                     continue;
                 case "GET":
-                    String test = inputArray[0] + " " + inputArray[1] + " AFTP/1.0";
-                    ps.println(test);
+                    String UserInput = inputArray[0] + " " + inputArray[1] + " AFTP/1.0";
+                    ps.println(UserInput);
                     getFile(inputArray[1]);
                     continue;
                 case "PUT":
                     ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
                     putFile(inputArray[1]);
+                    // putFile(inputArray[1]); Zo werkt het gewoon...
                     continue;
                 case "DELETE":
                     if(inputArray[1] != null) {
@@ -95,20 +98,28 @@ class FileClient {
     }
 
     private static void getFile(String getFileName) throws IOException {
+
+        DataInputStream data = null;
+        String currentFileName = null;
         OutputStream output = null;
         DataInputStream clientData = null;
+
         try {
             int bytesRead;
-            clientData = new DataInputStream(socket.getInputStream());
-            String currentFileName = clientData.readUTF();
+            String filePath = "Share\\" +getFileName;
+            data = new DataInputStream(socket.getInputStream());
+            currentFileName = data.readUTF();
             if (!(currentFileName.equals("<AFTP/1.0 404 Not found"))) {
-                output = new FileOutputStream(getFileName);
-                int size = clientData.readInt();
+                output = new FileOutputStream(filePath);
+                int size = data.readInt();
                 byte[] buffer = new byte[1024];
-                while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                while (size > 0 && (bytesRead = data.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
                     output.write(buffer, 0, bytesRead);
                     size -= bytesRead;
                 }
+
+                output.close();
+
                 System.out.println(currentFileName);
             } else {
                 System.out.println(currentFileName);
@@ -119,10 +130,11 @@ class FileClient {
         }
 
     }
-
     private static void putFile(String putFileName) {
+        String fullPath = "Share\\" + putFileName;
+
         try {
-            File myFile = new File(putFileName);
+            File myFile = new File(fullPath);
             byte[] byteArray = new byte[(int) myFile.length()];
 
             if(!(myFile.exists())) {
@@ -131,7 +143,6 @@ class FileClient {
             } else {
                 FileInputStream fis = new FileInputStream(myFile);
                 BufferedInputStream bis = new BufferedInputStream(fis);
-
                 DataInputStream dis = new DataInputStream(bis);
                 dis.readFully(byteArray, 0, byteArray.length);
 
