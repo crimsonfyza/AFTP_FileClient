@@ -26,8 +26,8 @@ class FileClient {
     **/
     FileClient() {
         try {
-            //socket = new Socket("192.168.43.101", 25444);
-            socket = new Socket("localhost", 25444);
+            socket = new Socket("192.168.43.101", 25444);
+            //socket = new Socket("localhost", 25444);
             getStatus();
         } catch (Exception e) {
             System.err.println(">Can't connect to the server, please try again later");
