@@ -2,6 +2,7 @@ package com.company;
 
 import java.net.*;
 import java.io.*;
+import java.util.ArrayList;
 
 class FileClient {
     /**
@@ -26,9 +27,10 @@ class FileClient {
     **/
     FileClient() {
         try {
-            socket = new Socket("192.168.43.101", 25444);
-            //socket = new Socket("localhost", 25444);
+            //socket = new Socket("192.168.43.101", 25444);
+            socket = new Socket("localhost", 25444);
             getStatus();
+
         } catch (Exception e) {
             System.err.println(">Can't connect to the server, please try again later");
             System.exit(1);
@@ -47,7 +49,11 @@ class FileClient {
             switch (inputArray[0]) {
                 case "LIST":
                     ps.println(inputArray[0] + " / AFTP/1.0");
-                    getStatus();
+                    printList(getList());
+                    continue;
+                    case "SYNCH":
+                    ps.println(inputArray[0] + " / AFTP/1.0");
+
                     continue;
                 case "GET":
                     String UserInput = inputArray[0] + " " + inputArray[1] + " AFTP/1.0";
@@ -94,6 +100,21 @@ class FileClient {
 
         } catch (Exception e) {
 
+        }
+    }
+
+    private String[] getList() throws IOException {
+
+            DataInputStream clientData = new DataInputStream(socket.getInputStream());
+            String[] returnValue = clientData.readUTF().replace("[","").replace("]","").split(",");
+
+            return returnValue;
+
+    }
+
+    private void printList (String[] list) {
+        for (String item : list) {
+            System.out.println(item);
         }
     }
 
