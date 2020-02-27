@@ -3,6 +3,7 @@ package com.company;
 import java.net.*;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 class FileClient {
     /**
@@ -20,7 +21,9 @@ class FileClient {
     private static Socket socket;
     private static BufferedReader br;
     private static PrintStream ps;
-    private static DataInputStream getClientData;
+    private String ShareName;
+    private static String Share;
+    private ArrayList<String> ListFiles;
 
     /**
      * Creates the connection
@@ -37,9 +40,11 @@ class FileClient {
         }
     }
 
-    void startFileClient() throws IOException {
+    void startFileClient() throws IOException, InterruptedException {
 
         while(true) {
+            ShareName = "Share";
+            Share = "Share\\";
             br = new BufferedReader(new InputStreamReader(System.in));
             ps = new PrintStream(socket.getOutputStream());
 
@@ -51,9 +56,10 @@ class FileClient {
                     ps.println(inputArray[0] + " / AFTP/1.0");
                     printList(getList());
                     continue;
-                    case "SYNCH":
+                case "SYNCH":
                     ps.println(inputArray[0] + " / AFTP/1.0");
-
+                    ArrayList<String> needToSynch = synchFiles(getList());
+                    getMultipleFiles(needToSynch);
                     continue;
                 case "GET":
                     ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
@@ -102,6 +108,88 @@ class FileClient {
         }
     }
 
+    private ArrayList<String> synchFiles (String[] list) throws InterruptedException {
+        ListFiles = new ArrayList<>();
+        ArrayList<String> filesToCheck = new ArrayList<>();
+        ArrayList<String> serverFilesCheck = new ArrayList<>();
+        ArrayList<String> returnValues = new ArrayList<>();
+
+        folderWalker(Share);
+
+        int f = 0;
+        for (String serverFile : list )
+        {
+            if (!(f == 0)) {
+                String[] CheckValue = serverFile.split(" ");
+                String serverFileCheck = CheckValue[1].replace("\\", "\\\\");
+                serverFilesCheck.add(serverFileCheck + " " + CheckValue[2]);
+                File checkFile = new File(serverFileCheck);
+                if (checkFile.exists()){
+                    if (!(checkFile.isDirectory())) {
+                        // files thats not an directory that already exist, checking later if it needs to be replaced.
+                        String input = serverFileCheck + " " + checkFile.lastModified();
+                        filesToCheck.add(input);
+                    }
+                } else {
+                    if (!(serverFileCheck.contains("."))) {
+                        checkFile.mkdir();
+                    } else {
+                        filesToCheck.add(serverFileCheck + " " + 0);
+                    }
+                }
+            }
+            if (f == 0) {
+                f++;
+            }
+        }
+        TimeUnit.MILLISECONDS.sleep(50);
+
+        for (String item : filesToCheck) {
+            String[] clientFile = item.split(" ");
+            String clientName = clientFile[0];
+            Long clientModification =  Long.parseLong(clientFile[1]);
+
+            for (String serverItem : serverFilesCheck) {
+                String[] serverFile = serverItem.split(" ");
+                String serverName = serverFile[0];
+                Long serverModification = Long.parseLong(serverFile[1]);
+
+                if (serverName.equals(clientName)) {
+
+                    if (clientModification < serverModification) {
+                        returnValues.add(clientName.replace("Share\\\\",""));
+                    }
+                }
+            }
+        }
+        return returnValues;
+    }
+
+    public void folderWalker( String path ) {
+
+        File root = new File( path );
+        File[] list = root.listFiles();
+
+        if (list == null) return;
+
+        for ( File f : list ) {
+            if ( f.isDirectory() ) {
+                //get all folders
+                String[] editPathName = f.getAbsolutePath().split(ShareName);
+                String outValue = ShareName + editPathName[1];
+                ListFiles.add(outValue);
+
+                folderWalker( f.getAbsolutePath());
+
+            }
+            else {
+                String[] editPathName = f.getAbsolutePath().split(ShareName);
+                String outValue = ShareName + editPathName[1];
+                ListFiles.add(outValue);
+            }
+        }
+    }
+
     private String[] getList() {
 
         try {
@@ -121,6 +209,14 @@ class FileClient {
     }
 
 
+    private void getMultipleFiles (ArrayList<String> getFiles) throws IOException {
+        for (String item: getFiles) {
+            System.out.println(">GET " + item +" AFTP/1.0");
+            ps.println("GET " + item + " AFTP/1.0");
+            getFile(item);
+        }
+    }
+
     private static void getFile(String getFileName) throws IOException {
         OutputStream output = null;
         String filePath = null;
@@ -130,7 +226,7 @@ class FileClient {
             DataInputStream clientData = new DataInputStream(socket.getInputStream());
             String currentFileName = clientData.readUTF();
             if ((currentFileName.equals("<AFTP/1.0 200 OK"))) {
-                filePath = "Share\\" +getFileName;
+                filePath = Share +getFileName;
                 output = new FileOutputStream(filePath);
                 long size = clientData.readLong();
                 byte[] buffer = new byte[1024];
@@ -167,7 +263,7 @@ class FileClient {
 
 
     private static void putFile(String putFileName) {
-        String fullPath = "Share\\" + putFileName;
+        String fullPath = Share + putFileName;
 
         try {
             File myFile = new File(fullPath);
