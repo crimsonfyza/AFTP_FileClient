@@ -20,7 +20,7 @@ class FileClient {
     private static Socket socket;
     private static BufferedReader br;
     private static PrintStream ps;
-    private static String fileName;
+    private static DataInputStream getClientData;
 
     /**
      * Creates the connection
@@ -56,8 +56,7 @@ class FileClient {
 
                     continue;
                 case "GET":
-                    String UserInput = inputArray[0] + " " + inputArray[1] + " AFTP/1.0";
-                    ps.println(UserInput);
+                    ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
                     getFile(inputArray[1]);
                     continue;
                 case "PUT":
@@ -103,13 +102,16 @@ class FileClient {
         }
     }
 
-    private String[] getList() throws IOException {
+    private String[] getList() {
 
+        try {
             DataInputStream clientData = new DataInputStream(socket.getInputStream());
             String[] returnValue = clientData.readUTF().replace("[","").replace("]","").split(",");
-
             return returnValue;
 
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private void printList (String[] list) {
@@ -118,23 +120,21 @@ class FileClient {
         }
     }
 
-    private static void getFile(String getFileName) throws IOException {
 
-        DataInputStream data = null;
-        String currentFileName = null;
+    private static void getFile(String getFileName) throws IOException {
         OutputStream output = null;
-        DataInputStream clientData = null;
+        String filePath = null;
 
         try {
             int bytesRead;
-            String filePath = "Share\\" +getFileName;
-            data = new DataInputStream(socket.getInputStream());
-            currentFileName = data.readUTF();
-            if (!(currentFileName.equals("<AFTP/1.0 404 Not found"))) {
+            DataInputStream clientData = new DataInputStream(socket.getInputStream());
+            String currentFileName = clientData.readUTF();
+            if ((currentFileName.equals("<AFTP/1.0 200 OK"))) {
+                filePath = "Share\\" +getFileName;
                 output = new FileOutputStream(filePath);
-                int size = data.readInt();
+                long size = clientData.readLong();
                 byte[] buffer = new byte[1024];
-                while (size > 0 && (bytesRead = data.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
                     output.write(buffer, 0, bytesRead);
                     size -= bytesRead;
                 }
@@ -146,13 +146,26 @@ class FileClient {
                 System.out.println(currentFileName);
             }
         } catch (IOException ex) {
-            //System.err.println("Client error. Connection closed.");
-            System.out.println("<AFTP/1.0 404 Not found");
+            System.err.println("Client error. Connection closed.");
+            File filePathCheck = new File(filePath);
+            Boolean defaultPathCheck = filePathCheck.exists();
+            //error file couldnt upload
+            // so if the file existed, it would be locked, if it didnt exist theres a server error.
+            if (defaultPathCheck == true) {
+                //overwrite failed
+                System.out.println("catch <AFTP/1.0 423 Locked");
+            } else {
+                //new file couldnt be made.
+                System.out.println("catch <AFTP/1.0 500 Server Error");
+            }
+            output.close();
         }
 
-        output.close();
-
     }
+
+
+
+
     private static void putFile(String putFileName) {
         String fullPath = "Share\\" + putFileName;
 
