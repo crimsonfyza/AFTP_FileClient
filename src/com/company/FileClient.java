@@ -31,8 +31,8 @@ class FileClient {
 
         // Tries to connect to the server, if it fails an error is printed and the application is closed
         try {
-            socket = new Socket("192.168.43.101", 25444);
-//            socket = new Socket("localhost", 25444);
+            //socket = new Socket("192.168.43.101", 25444);
+            socket = new Socket("localhost", 25444);
             getStatus();
 
         } catch (Exception e) {
@@ -340,4 +340,5 @@ class FileClient {
 
         }
     }
+
 }
