@@ -8,30 +8,30 @@ import java.util.concurrent.TimeUnit;
 class FileClient {
     /**
      * Possible commands:
-     * LIST - Shows all files
-     * GET /Tekst.txt - Get file from server
-     * PUT /Tekst.txt - Place file on server
-     * DELETE /Tekst.txt - Delete file from server
-     *
-     * socket   The connection with the server over a specific port
-     * br       The buffer surrounding the inputstream, gets its input from the commandline
-     * ps       The communication with the server
-     * fileName The filename of the received/sent file
-    **/
+     * LIST - Shows all present files from the server
+     * SYNCH - Synchronizes the Share folder with the Share folder on the server
+     * GET Tekst.txt - Gets a file from the server
+     * PUT Tekst.txt - Places a file on the server
+     * DELETE Tekst.txt - Deletes a file from the server
+     **/
     private static Socket socket;
     private static BufferedReader br;
     private static PrintStream ps;
-    private String ShareName;
-    private static String Share;
-    private ArrayList<String> ListFiles;
+    private static String shareName;
+    private static String share;
+    private ArrayList<String> listFiles;
+
 
     /**
-     * Creates the connection
-    **/
+     * Sets up the connection with the server.
+     **/
     FileClient() {
+        shareName = "Share";
+        share = "Share\\";
+
         try {
-            //socket = new Socket("192.168.43.101", 25444);
-            socket = new Socket("localhost", 25444);
+            socket = new Socket("192.168.43.101", 25444);
+//            socket = new Socket("localhost", 25444);
             getStatus();
 
         } catch (Exception e) {
@@ -40,11 +40,12 @@ class FileClient {
         }
     }
 
-    void startFileClient() throws IOException, InterruptedException {
 
+    /**
+     * This method keeps the program running using a while loop and decides what method to call, depending on the user input.
+     **/
+    void startFileClient() throws IOException, InterruptedException {
         while(true) {
-            ShareName = "Share";
-            Share = "Share\\";
             br = new BufferedReader(new InputStreamReader(System.in));
             ps = new PrintStream(socket.getOutputStream());
 
@@ -56,26 +57,29 @@ class FileClient {
                     ps.println(inputArray[0] + " / AFTP/1.0");
                     printList(getList());
                     continue;
+
                 case "SYNCH":
                     ps.println(inputArray[0] + " / AFTP/1.0");
-                    ArrayList<String> needToSynch = synchFiles(getList());
-                    getMultipleFiles(needToSynch);
+                    getMultipleFiles(getSynchFiles(getList()));
                     continue;
+
                 case "GET":
                     ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
                     getFile(inputArray[1]);
                     continue;
+
                 case "PUT":
                     ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
                     putFile(inputArray[1]);
-                    // putFile(inputArray[1]); Zo werkt het gewoon...
                     continue;
+
                 case "DELETE":
                     if(inputArray[1] != null) {
                         ps.println(inputArray[0] + " " + inputArray[1] + " AFTP/1.0");
                         getStatus();
                     }
                     continue;
+
                 default:
                     ps.println("COMMAND NOT FOUND");
                     getStatus();
@@ -83,8 +87,9 @@ class FileClient {
         }
     }
 
+
     /**
-     * This method asks the user for input from the commandline
+     * This method asks the user for input from the commandline.
      **/
     private static String selectCommand() throws IOException {
         System.out.print(">");
@@ -92,32 +97,22 @@ class FileClient {
         return br.readLine();
     }
 
+
     /**
-     * Requests the status from the server
+     * Compares the files from the server with the files from the client, and decides which files are going to be synched.
+     *
+     * @param fileNames All filenames from the server
      **/
-    private static void getStatus() {
-        try {
-
-            DataInputStream clientData = new DataInputStream(socket.getInputStream());
-            String status = clientData.readUTF();
-            System.out.println(">");
-            System.out.println(status);
-
-        } catch (Exception e) {
-
-        }
-    }
-
-    private ArrayList<String> synchFiles (String[] list) throws InterruptedException {
-        ListFiles = new ArrayList<>();
+    private ArrayList<String> getSynchFiles( String[] fileNames ) throws InterruptedException {
+        listFiles = new ArrayList<>();
         ArrayList<String> filesToCheck = new ArrayList<>();
         ArrayList<String> serverFilesCheck = new ArrayList<>();
         ArrayList<String> returnValues = new ArrayList<>();
 
-        folderWalker(Share);
+        folderWalker(share);
 
         int f = 0;
-        for (String serverFile : list )
+        for (String serverFile : fileNames )
         {
             if (!(f == 0)) {
                 String[] CheckValue = serverFile.split(" ");
@@ -165,8 +160,14 @@ class FileClient {
         return returnValues;
     }
 
-    public void folderWalker( String path ) {
 
+    /**
+     * Walks through all subfolders on the client, dependending on the given path.
+     * This function is used in the SYNCH command.
+     *
+     * @param path The path which is being checked
+     **/
+    public void folderWalker( String path ) {
         File root = new File( path );
         File[] list = root.listFiles();
 
@@ -175,49 +176,55 @@ class FileClient {
         for ( File f : list ) {
             if ( f.isDirectory() ) {
                 //get all folders
-                String[] editPathName = f.getAbsolutePath().split(ShareName);
-                String outValue = ShareName + editPathName[1];
-                ListFiles.add(outValue);
+                String[] editPathName = f.getAbsolutePath().split(shareName);
+                String outValue = shareName + editPathName[1];
+                listFiles.add(outValue);
 
                 folderWalker( f.getAbsolutePath());
-
             }
             else {
-                String[] editPathName = f.getAbsolutePath().split(ShareName);
-                String outValue = ShareName + editPathName[1];
-                ListFiles.add(outValue);
+                String[] editPathName = f.getAbsolutePath().split(shareName);
+                String outValue = shareName + editPathName[1];
+                listFiles.add(outValue);
             }
         }
     }
 
-    private String[] getList() {
 
+    /**
+     * This function gets all the filenames from the server and returns it in an array.
+     * This function is used in the LIST and SYNCH commands
+     **/
+    private String[] getList() {
         try {
             DataInputStream clientData = new DataInputStream(socket.getInputStream());
             String[] returnValue = clientData.readUTF().replace("[","").replace("]","").split(",");
-            return returnValue;
 
+            return returnValue;
         } catch (Exception e) {
             return null;
         }
     }
 
-    private void printList (String[] list) {
+
+    /**
+     * The function associated with the LIST command, which gets all filenames from the server.
+     *
+     * @param list A list of the filenames who are going to be printed
+     **/
+    private void printList( String[] list ) {
         for (String item : list) {
             System.out.println(item);
         }
     }
 
 
-    private void getMultipleFiles (ArrayList<String> getFiles) throws IOException {
-        for (String item: getFiles) {
-            System.out.println(">GET " + item +" AFTP/1.0");
-            ps.println("GET " + item + " AFTP/1.0");
-            getFile(item);
-        }
-    }
-
-    private static void getFile(String getFileName) throws IOException {
+    /**
+     * The function associated with the GET command, which gets a file from the server.
+     *
+     * @param fileName The name of the file which is going to be received from the server
+     **/
+    private static void getFile( String fileName ) throws IOException {
         OutputStream output = null;
         String filePath = null;
 
@@ -226,7 +233,7 @@ class FileClient {
             DataInputStream clientData = new DataInputStream(socket.getInputStream());
             String currentFileName = clientData.readUTF();
             if ((currentFileName.equals("<AFTP/1.0 200 OK"))) {
-                filePath = Share +getFileName;
+                filePath = share + fileName;
                 output = new FileOutputStream(filePath);
                 long size = clientData.readLong();
                 byte[] buffer = new byte[1024];
@@ -245,25 +252,42 @@ class FileClient {
             System.err.println("Client error. Connection closed.");
             File filePathCheck = new File(filePath);
             Boolean defaultPathCheck = filePathCheck.exists();
-            //error file couldnt upload
-            // so if the file existed, it would be locked, if it didnt exist theres a server error.
+
+            // So if the file existed, it would be locked, if it didnt exist there's a server error.
             if (defaultPathCheck == true) {
-                //overwrite failed
+                // Overwrite failed
                 System.out.println("catch <AFTP/1.0 423 Locked");
             } else {
-                //new file couldnt be made.
+                // New file couldn't be made.
                 System.out.println("catch <AFTP/1.0 500 Server Error");
             }
             output.close();
         }
-
     }
 
 
+    /**
+     * This function loops through an array of fileNames en gets each one of them using the getFile function.
+     * This function is used in the SYNCH command.
+     *
+     * @param fileNames The list of files who are being synched
+     **/
+    private void getMultipleFiles( ArrayList<String> fileNames ) throws IOException {
+        for (String item: fileNames) {
+            System.out.println(">GET " + item +" AFTP/1.0");
+            ps.println("GET " + item + " AFTP/1.0");
+            getFile(item);
+        }
+    }
 
 
-    private static void putFile(String putFileName) {
-        String fullPath = Share + putFileName;
+    /**
+     * The function associated with the PUT command, which sends a file to the server.
+     *
+     * @param fileName The name of the file which is going to be sent to the server
+     **/
+    private static void putFile( String fileName ) {
+        String fullPath = share + fileName;
 
         try {
             File myFile = new File(fullPath);
@@ -290,6 +314,21 @@ class FileClient {
             }
         } catch (Exception e) {
             System.err.println("Exception: " + e);
+        }
+    }
+
+
+    /**
+     * Requests the status from the server
+     **/
+    private static void getStatus() {
+        try {
+            DataInputStream clientData = new DataInputStream(socket.getInputStream());
+            String status = clientData.readUTF();
+            System.out.println(">");
+            System.out.println(status);
+        } catch (Exception e) {
+
         }
     }
 }
