@@ -29,6 +29,7 @@ class FileClient {
         shareName = "Share";
         share = "Share\\";
 
+        // Tries to connect to the server, if it fails an error is printed and the application is closed
         try {
             socket = new Socket("192.168.43.101", 25444);
 //            socket = new Socket("localhost", 25444);
@@ -49,11 +50,13 @@ class FileClient {
             br = new BufferedReader(new InputStreamReader(System.in));
             ps = new PrintStream(socket.getOutputStream());
 
+            // User input is split up into an array, and then used to decide which command to use and a filename is optionally stored
             String input = selectCommand();
             String[] inputArray = input.split(" ");
 
             switch (inputArray[0]) {
                 case "LIST":
+                    // The printstream sends the following command to the server: "LIST / AFTP/1.0"
                     ps.println(inputArray[0] + " / AFTP/1.0");
                     printList(getList());
                     continue;
@@ -80,6 +83,7 @@ class FileClient {
                     }
                     continue;
 
+                // In case of an incorrect command
                 default:
                     ps.println("COMMAND NOT FOUND");
                     getStatus();
@@ -112,8 +116,7 @@ class FileClient {
         folderWalker(share);
 
         int f = 0;
-        for (String serverFile : fileNames )
-        {
+        for (String serverFile : fileNames ){
             if (!(f == 0)) {
                 String[] CheckValue = serverFile.split(" ");
                 String serverFileCheck = CheckValue[1].replace("\\", "\\\\");
@@ -121,7 +124,7 @@ class FileClient {
                 File checkFile = new File(serverFileCheck);
                 if (checkFile.exists()){
                     if (!(checkFile.isDirectory())) {
-                        // files thats not an directory that already exist, checking later if it needs to be replaced.
+                        // file that is not an directory that already exist, checking later if it needs to be replaced.
                         String input = serverFileCheck + " " + checkFile.lastModified();
                         filesToCheck.add(input);
                     }
@@ -231,22 +234,27 @@ class FileClient {
         try {
             int bytesRead;
             DataInputStream clientData = new DataInputStream(socket.getInputStream());
-            String currentFileName = clientData.readUTF();
-            if ((currentFileName.equals("<AFTP/1.0 200 OK"))) {
+            String serverResponse = clientData.readUTF();
+            if ((serverResponse.equals("<AFTP/1.0 200 OK"))) {
                 filePath = share + fileName;
                 output = new FileOutputStream(filePath);
                 long size = clientData.readLong();
                 byte[] buffer = new byte[1024];
+
+                // For every iteration, a part of 1024 bytes is received through the file output stream
+                // The progress is checked through the long "size", this long is initially the size of the file and in every loop
+                // the part that is received is substracted from the long, thus keeping track of the progress
                 while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
                     output.write(buffer, 0, bytesRead);
                     size -= bytesRead;
                 }
 
+                // When this process is finished, the file output stream is closed
                 output.close();
 
-                System.out.println(currentFileName);
+                System.out.println(serverResponse);
             } else {
-                System.out.println(currentFileName);
+                System.out.println(serverResponse);
             }
         } catch (IOException ex) {
             System.err.println("Client error. Connection closed.");
@@ -256,10 +264,10 @@ class FileClient {
             // So if the file existed, it would be locked, if it didnt exist there's a server error.
             if (defaultPathCheck == true) {
                 // Overwrite failed
-                System.out.println("catch <AFTP/1.0 423 Locked");
+                System.out.println("<AFTP/1.0 423 Locked");
             } else {
                 // New file couldn't be made.
-                System.out.println("catch <AFTP/1.0 500 Server Error");
+                System.out.println("<AFTP/1.0 500 Server Error");
             }
             output.close();
         }
@@ -294,6 +302,7 @@ class FileClient {
             byte[] byteArray = new byte[(int) myFile.length()];
 
             if(!(myFile.exists())) {
+                // In case the file doesn't exist a 404 response is printed
                 System.out.println(">");
                 System.out.println("<AFTP/1.0 404 Not found");
             } else {
